@@ -35,3 +35,24 @@ The build happens as an unprivileged user so having the headers installed on the
 The solution I came up with for now is to pre-compile the gem in an environment that looks exactly like the standard lambda build container but with the needed libraries added in.
 
 The upside is that the gem is compatible and ready to run and you don't necessarily need to use the build container flag which speeds things up. The downside is that it has to be done ahead of time and hosted somewhere. We have a nexus repository, so I created a repo there to put it in. An S3 bucket would work just as well.
+
+# Future potential
+
+My initial thought is that we could add some additional metadata to the SAM template that lists the additional yum packages that need to be installed for both build time and runtime. Something like this:
+
+```yaml
+MyFunction:
+  Type: AWS::Serverless::Function
+  Metadata:
+    Packages:
+	  Build:
+	    - mysql-devel
+	  Runtime:
+	    - mysql-libs 
+```
+
+When the package command is run, it would inject the packages into the build container.  Additionally, it would pull the files from the runtime packages, build them into a layer, register the layer, and put the ARN in the list of layers for the function. Ideally, something would be done to test whether the layer is already there with the proper versions of the libraries to avoid duplication on every build.
+
+Another possibility would be something like a buildspec file like codebuild uses. SAM could use that to build layers, transform the template, and inject build dependencies into the build environment.
+
+The real goal is to get to the point where 'sam build' can build all the various pieces required to support the function even if those pieces include OS level packages.
